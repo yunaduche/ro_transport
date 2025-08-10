@@ -1,0 +1,417 @@
+/* --- VARIABLES & GLOBAL STYLES --- */
+:root {
+  --primary-color: #005a9c;
+  --secondary-color: #6c757d;
+  --success-color: #28a745;
+  --info-color: #17a2b8;
+  --danger-color: #dc3545;
+  --light-gray: #f8f9fa;
+  --medium-gray: #dee2e6;
+  --dark-gray: #343a40;
+  --text-color: #212529;
+  --background-color: #f4f7f6;
+  --white: #fff;
+  --border-radius: 0.375rem;
+  --box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue',
+    Arial, sans-serif;
+  background-color: var(--background-color);
+  color: var(--text-color);
+  margin: 0;
+  padding: 20px;
+}
+
+.container {
+  max-width: 1400px;
+  margin: 0 auto;
+  background-color: var(--white);
+  padding: 25px;
+  border-radius: var(--border-radius);
+  box-shadow: var(--box-shadow);
+  margin-bottom: 20px;
+}
+
+/* --- HEADER --- */
+.main-header {
+  text-align: left;
+  padding-bottom: 20px;
+  margin-bottom: 25px;
+  border-bottom: 1px solid var(--medium-gray);
+}
+
+.main-header h1 {
+  margin: 0;
+  color: var(--dark-gray);
+  font-size: 2rem;
+  font-weight: 600;
+}
+
+.main-header p {
+  margin: 5px 0 0;
+  color: var(--secondary-color);
+  font-size: 1rem;
+}
+
+/* --- MAIN LAYOUT GRID --- */
+.main-grid-container {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 30px;
+}
+
+/* --- CONTROL PANEL (LEFT COLUMN) --- */
+.control-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 25px;
+}
+
+.control-section {
+  background-color: var(--light-gray);
+  padding: 20px;
+  border-radius: var(--border-radius);
+  border: 1px solid #e9ecef;
+}
+
+.control-section h5 {
+  margin-top: 0;
+  margin-bottom: 15px;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.setup-inputs {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.setup-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 15px;
+}
+
+.btn {
+  width: 100%;
+  padding: 10px 15px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  border: none;
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.1s ease;
+}
+.btn:hover {
+  transform: translateY(-1px);
+}
+
+.btn-primary {
+  background-color: var(--primary-color);
+  color: var(--white);
+}
+.btn-primary:hover {
+  background-color: #004b82;
+}
+
+.btn-secondary {
+  background-color: var(--secondary-color);
+  color: var(--white);
+}
+.btn-secondary:hover {
+  background-color: #5a6268;
+}
+
+.solve-button-container {
+  margin-top: auto; /* Pushes the button to the bottom */
+}
+
+.btn-solve {
+  background-color: var(--success-color);
+  color: var(--white);
+  padding: 12px 15px;
+  font-size: 1.1rem;
+}
+.btn-solve:hover {
+  background-color: #218838;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+/* --- DATA PANEL (RIGHT COLUMN) --- */
+.data-panel {
+  display: flex;
+  flex-direction: column;
+}
+
+.table-container {
+  overflow-x: auto; /* Makes table scrollable on small screens */
+  flex-grow: 1;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table-bordered th,
+.table-bordered td {
+  border: 1px solid var(--medium-gray);
+  text-align: center;
+  vertical-align: middle;
+  padding: 8px;
+  min-width: 90px;
+}
+
+.table th {
+  background-color: var(--light-gray);
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+.table th:first-child {
+  background-color: #e2e6ea;
+}
+
+.table tfoot td:first-child {
+  font-weight: 600;
+  background-color: var(--light-gray);
+}
+
+.table .form-control {
+  text-align: center;
+  width: 80px;
+  padding: 6px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+.table .form-control:focus {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px rgba(0, 90, 156, 0.25);
+  outline: none;
+}
+
+/* --- FINAL SOLUTION & COST DISPLAY --- */
+#final-solution-container {
+  margin-top: 25px;
+  padding-top: 25px;
+  border-top: 1px solid var(--medium-gray);
+}
+#final-solution-container h5 {
+  margin-bottom: 15px;
+}
+#final-solution-container .table-bordered td {
+  padding: 8px;
+  text-align: center;
+  vertical-align: middle;
+}
+.final-cost {
+  display: block;
+  font-size: 0.9em;
+  color: var(--secondary-color);
+}
+.final-allocation {
+  display: block;
+  font-size: 1.2em;
+  font-weight: 700;
+  color: var(--info-color);
+}
+
+.solution-cost-container {
+
+  margin-top: 20px;
+  text-align: right;
+}
+
+.solution-cost {
+  display: inline-block;
+  padding: 12px 20px;
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: var(--white);
+  background-color: var(--success-color);
+  border-radius: var(--border-radius);
+}
+.solution-cost::before {
+  content: 'Coût Total Optimal (Z) = ';
+  font-weight: 500;
+  font-size: 0.9em;
+  opacity: 0.9;
+}
+
+/* --- RESULTS SECTION --- */
+.results-container {
+  padding: 25px;
+  border-radius: var(--border-radius);
+  background-color: var(--light-gray);
+  border: 1px solid #e9ecef;
+}
+
+.results-header {
+  margin-bottom: 20px;
+}
+.results-header h3 {
+  margin: 0;
+  font-weight: 600;
+}
+
+.tabs {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  border-bottom: 2px solid var(--medium-gray);
+}
+
+.tab-link {
+  padding: 12px 20px;
+  background: transparent;
+  color: var(--secondary-color);
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  font-weight: 500;
+}
+.tab-link:hover {
+  color: var(--primary-color);
+}
+.tab-link.active {
+  color: var(--primary-color);
+  border-bottom-color: var(--primary-color);
+}
+
+.tab-content {
+  display: none;
+  padding: 25px 0;
+}
+.tab-content.active {
+  display: block;
+}
+
+.result-container {
+  display: grid;
+  /* Default: two columns layout where possible */
+  grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+  gap: 20px;
+}
+
+/* Make the first box (solution table) span full width and scroll if needed */
+.result-container .result-box:first-child {
+  grid-column: 1 / -1;
+  overflow-x: auto;
+}
+.result-container .result-box:first-child table {
+  /* Allow horizontal scroll when there are many columns */
+  width: max-content;
+  min-width: 100%;
+}
+
+/* On large screens, prefer a 2:1 layout (table wide, side panels narrower) */
+@media (min-width: 1200px) {
+  .result-container {
+    grid-template-columns: 2fr 1fr;
+  }
+}
+
+/* On small screens, stack everything full-width */
+@media (max-width: 900px) {
+  .result-container .result-box {
+    grid-column: 1 / -1 !important;
+  }
+}
+
+.result-box {
+  background-color: var(--white);
+  padding: 15px;
+  border-radius: var(--border-radius);
+  border: 1px solid var(--medium-gray);
+}
+.result-box h5 {
+  margin-top: 0;
+  font-size: 1.1rem;
+}
+
+#tree0,
+#tree1,
+#tree2,
+#tree3,
+#tree4,
+#tree5,
+#tree6,
+#tree7,
+#tree8,
+#tree9,
+#tree10 {
+  width: 100%;
+  height: 280px;
+  border: 1px solid var(--medium-gray);
+  border-radius: var(--border-radius);
+  overflow: hidden;
+  position: relative;
+}
+
+
+/* --- FORM ELEMENTS & HELPERS --- */
+.form-control {
+  display: block;
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  font-size: 1rem;
+  line-height: 1.5;
+  color: var(--text-color);
+  background-color: var(--white);
+  border: 1px solid #ced4da;
+  border-radius: var(--border-radius);
+  transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+.form-control:focus {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(0, 90, 156, 0.25);
+  outline: none;
+}
+
+label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: 500;
+  font-size: 0.9rem;
+}
+
+.hide {
+  display: none !important;
+}
+
+/* Hide arrows from number inputs */
+input[type='number']::-webkit-outer-spin-button,
+input[type='number']::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type='number'] {
+  -moz-appearance: textfield;
+}
+
+/* Step tables container: allow horizontal scrolling */
+.table-container-step {
+  overflow-x: auto;
+  width: 100%;
+}
+.table-step {
+  width: max-content;
+  min-width: 100%;
+}
+.table-step thead th {
+  position: sticky;
+  top: 0;
+  background: var(--light-gray);
+  z-index: 1;
+}
+
+/* Give the solution box more space visually */
+.solution-box {
+  grid-column: 1 / -1;
+}

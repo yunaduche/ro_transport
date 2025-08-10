@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- <link rel="stylesheet" type="text/css" href="assets/css/bootstrap/css/bootstrap.min.css" /> -->
+  <link rel="stylesheet" type="text/css" href="assets/vendor/sweetalert/sweetalert.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/vis/4.21.0/vis.min.css" type="text/css" />
+  <link rel="stylesheet" href="assets/css/style.css" />
+  <title>RO - Problème de Transport</title>
+</head>
+
+<body>
+  <div class="container">
+    <header class="main-header">
+      <h1>Problème de Transport</h1>
+      <p>Un outil pour la résolution de problèmes de transport par la recherche opérationnelle.</p>
+    </header>
+
+    <div class="main-grid-container">
+      <div class="control-panel">
+        <div class="control-section">
+          <h5>1. Configuration</h5>
+          <div class="setup-inputs">
+            <div>
+              <label for="rows">Sources (lignes)</label>
+              <input type="number" class="form-control" id="rows" value="4" min="1" />
+            </div>
+            <div>
+              <label for="cols">Destinations (colonnes)</label>
+              <input type="number" class="form-control" id="cols" value="6" min="1" />
+            </div>
+          </div>
+          <div class="setup-buttons">
+            <button type="button" id="generate-table" class="btn btn-primary">Générer</button>
+            <button type="button" id="generate-random" class="btn btn-secondary">Aléatoire</button>
+          </div>
+        </div>
+
+        <div class="control-section">
+          <h5>2. Résolution</h5>
+          <label for="method">Méthode de départ</label>
+          <select class="form-control method" id="method">
+            <option value="2">Balas Hammer</option>
+            <option value="3">Coin Nord-Ouest (CNO)</option>
+            <option value="4">Coûts Minima (Minico)</option>
+            <option value="1">Lignes Minima (Minili)</option>
+            <option value="5">Colonnes Minima (Minitab)</option>
+          </select>
+        </div>
+
+        <div class="solve-button-container">
+          <button type="button" class="submit btn btn-solve">Lancer la Résolution</button>
+        </div>
+      </div>
+
+      <div class="data-panel">
+        <div class="table-container">
+          <table class="table table-bordered">
+            <thead class="head-id"></thead>
+            <tbody class="body-id"></tbody>
+            <tfoot class="foot-id"></tfoot>
+          </table>
+        </div>
+        <div id="final-solution-container" class="hide">
+          <!-- Le tableau de la solution finale sera injecté ici -->
+        </div>
+        <div class="solution-cost-container">
+          <div class="solution-cost"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- Section des résultats détaillés -->
+  <div class="container resultat-to-hide hide">
+    <div class="results-container">
+      <header class="results-header">
+        <h3>Étapes de la Résolution</h3>
+      </header>
+      <div class="tab-wrapper">
+        <ul class="tabs"></ul>
+      </div>
+      <div class="content-wrapper"></div>
+    </div>
+  </div>
+</body>
+<!-- DEBUT PREREQUIS -->
+<script type="text/javascript" src="assets/js/jquery/jquery.min.js "></script>
+<script type="text/javascript" src="assets/js/animation.js"></script>
+<!-- <script type="text/javascript" src="assets/js/vertical/menu/menu-static.js"></script> -->
+<!-- <script type="text/javascript" src="assets/js/vertical/menu/vertical-layout.js"></script> -->
+<script type="text/javascript" src="assets/js/pcoded.min.js"></script>
+<script type="text/javascript" src="assets/js/script.js"></script>
+
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/vis/4.21.0/vis.min.js"></script>
+<script type="text/javascript" src="assets/js/graph-renderer.js"></script>
+<script type="text/javascript" src="assets/script/fill.js"></script>
+<script type="text/javascript" src="assets/script/inc/get.inc.js"></script>
+<script type="text/javascript" src="assets/vendor/sweetalert/sweetalert.min.js"></script>
+<!-- FIN PREREQUIS -->
+
+<!-- DEBUT METHODE DE RESOLUTION -->
+<script type="text/javascript" src="assets/script/inc/bhammer.inc.js"></script>
+<script type="text/javascript" src="assets/script/inc/minili.inc.js"></script>
+<script type="text/javascript" src="assets/script/inc/cno.inc.js"></script>
+<script type="text/javascript" src="assets/script/inc/minico.inc.js"></script>
+<script type="text/javascript" src="assets/script/inc/minitab.inc.js"></script>
+<!-- FIN METHODE DE RESOLUTION -->
+
+<!-- DEBUT TRAITEMENT -->
+<script type="text/javascript" src="assets/script/inc/degenerate.inc.js"></script>
+<script type="text/javascript" src="assets/script/inc/tree.inc.js"></script>
+<script type="text/javascript" src="assets/script/inc/stone.inc.js"></script>
+<!-- FIN TRAITEMENT-->
+
+<!-- AFFICHAGE -->
+<script type="text/javascript" src="assets/script/index.js"></script>
+
+</html>
