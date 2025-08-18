@@ -1,74 +1,95 @@
-const minitab = (data, data_sort, stock_row, stock_col) => {
-  // début prérequis
-  let base_data_tmp = [];
-  let k = 0; // position dans sort
-  source_number = get_data('.stock_col').length;
-  let data_test = [];
-  for (let m = 0; m < data.length; m++) {
-    data_test[m] = '0';
+/**
+ * Implémentation générique MINITAB (heuristique basée sur tri global des coûts)
+ * Entrées:
+ *  - costsFlat: tableau 1D des coûts (ligne majeure) de taille m*n
+ *  - rows: m, cols: n
+ *  - supplies: longueur m
+ *  - demands: longueur n
+ * Sortie: met à jour baseSolutionTable et originalTable
+ */
+const minitab_generic = (costsFlat, rows, cols, supplies, demands) => {
+  const m = rows;
+  const n = cols;
+  if (!m || !n) return;
+
+  // Reconstituer la matrice des coûts et préparer la solution
+  const costs = [];
+  for (let i = 0; i < m; i++) {
+    const start = i * n;
+    costs.push(costsFlat.slice(start, start + n).map(Number));
   }
-  // fin prérequis
+  const solution = init_array(costs);
 
-  while (k < data_sort.length) {
-    let i = 0; // position dans data
-    while (i < data.length) {
-      // comparaison
-      if (data_sort[k] == data[i] && data_test[i] == '0') {
-        if (stock_row[position_row(i)] != 0) {
-          if (stock_col[position_col(i)] != 0) {
-            if (stock_row[position_row(i)] < stock_col[position_col(i)]) {
-              data_test[i] = stock_row[position_row(i)];
-
-              stock_col[position_col(i)] =
-                Number(stock_col[position_col(i)]) -
-                Number(stock_row[position_row(i)]);
-              stock_row[position_row(i)] = 0;
-            } else {
-              data_test[i] = stock_col[position_col(i)];
-
-              stock_row[position_row(i)] =
-                Number(stock_row[position_row(i)]) -
-                Number(stock_col[position_col(i)]);
-              stock_col[position_col(i)] = 0;
-            }
-            i = data.length;
-          } else {
-            i++;
-          }
-        } else {
-          i++;
-        }
-      } else {
-        i++;
-      }
+  // Créer la liste triée des cellules par coût croissant (i,j,c)
+  const cells = [];
+  for (let i = 0; i < m; i++) {
+    for (let j = 0; j < n; j++) {
+      const c = Number(costs[i][j]);
+      cells.push({ i, j, c: isFinite(c) ? c : Infinity });
     }
-    k++;
+  }
+  cells.sort((a, b) => a.c - b.c);
+
+  const curSup = supplies.slice().map(Number);
+  const curDem = demands.slice().map(Number);
+
+  // Tracer les sélections effectuées (pour debug/validation UI)
+  if (typeof base_selection_trace !== 'undefined') base_selection_trace = [];
+
+  for (const cell of cells) {
+    const i = cell.i;
+    const j = cell.j;
+    if (curSup[i] <= 0 || curDem[j] <= 0) continue;
+    const alloc = Math.min(curSup[i], curDem[j]);
+    solution[i][j] = alloc;
+    curSup[i] -= alloc;
+    curDem[j] -= alloc;
+    if (typeof base_selection_trace !== 'undefined') {
+      base_selection_trace.push({ method: 'MINITAB', i, j, cost: cell.c, alloc });
+    }
   }
 
-  // diviser data_test en multiple tableau de 6 elements
-  data_test.forEach(function (x, y, z) {
-    !(y % 6) ? base_data_tmp.push(z.slice(y, y + 6)) : '';
-  });
+  // Assurer la non-dégénérescence si besoin
+  if (is_degenerate_case([], solution)) {
+    add_link(solution, costs);
+  }
 
-  // cas dégénerer
-  if (is_degenerate_case(get_base_stock_concat(), base_data_tmp))
-    add_link(base_data_tmp);
-
-  baseSolutionTable = [...base_data_tmp];
-  originalTable = get_base_data();
-  // fin traitement
+  baseSolutionTable = solution;
+  originalTable = costs;
+  // Normalisation pour éviter NaN / chaînes ambiguës
+  if (typeof sanitize_base_solution === 'function') {
+    sanitize_base_solution();
+  }
+  // Nombre de noeuds sources (lignes) pour le calcul des potentiels
+  if (typeof rows === 'number' && rows > 0) {
+    source_number = rows;
+  }
 };
 
-// position pour stock colonne
-const position_col = (index) => {
-  return index % 6;
-};
-
-// position pour stock ligne
-const position_row = (index) => {
-  if (index < 6) position = 0;
-  else if (index < 12) position = 1;
-  else if (index < 18) position = 2;
-  else position = 3;
-  return position;
+// Variante 100% pure (sans effets de bord globaux) pour comparaison/diagnostic
+const solve_minitab_pure = (costs, supplies, demands) => {
+  const m = costs.length;
+  const n = m ? costs[0].length : 0;
+  if (!m || !n) return [];
+  const curSup = supplies.slice();
+  const curDem = demands.slice();
+  const solution = init_array(costs);
+  // builder global list
+  const cells = [];
+  for (let i = 0; i < m; i++) {
+    for (let j = 0; j < n; j++) {
+      const c = Number(costs[i][j]);
+      cells.push({ i, j, c: isFinite(c) ? c : Infinity });
+    }
+  }
+  cells.sort((a, b) => a.c - b.c);
+  for (const cell of cells) {
+    const i = cell.i; const j = cell.j;
+    if (curSup[i] <= 0 || curDem[j] <= 0) continue;
+    const alloc = Math.min(curSup[i], curDem[j]);
+    solution[i][j] = alloc;
+    curSup[i] -= alloc;
+    curDem[j] -= alloc;
+  }
+  return solution;
 };

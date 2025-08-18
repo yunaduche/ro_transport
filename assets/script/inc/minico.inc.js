@@ -58,7 +58,7 @@ const minico = (data, data_sort, data_stock) => {
   );
   // cas dégénerer
   if (is_degenerate_case(get_base_stock_concat(), tmp_solution))
-    add_link(tmp_solution);
+    add_link(tmp_solution, get_base_data());
 
   baseSolutionTable = [...tmp_solution];
   // alert(baseSolutionTable);

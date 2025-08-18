@@ -117,16 +117,26 @@ const update_link = (
   // Remplir le tableau linkDataArray pour lier les noeuds
   for (let i = 0; i < tab_solution.length; i++) {
     for (let j = 0; j < tab_solution[i].length; j++) {
-      if (tab_solution[i][j] != 0) {
-        let data = { from: '', to: '', text: '' };
+      const v = tab_solution[i][j];
+      // Inclure toutes les variables basiques pour le calcul (numériques > 0 et epsilon)
+      const isNumericPositive = typeof v === 'number' && isFinite(v) && v > 0;
+      const isEpsilon = v === 'E' || v === 'ε';
+      if (isNumericPositive || isEpsilon) {
+        let data = { from: '', to: '', text: '', isEps: false };
         data.from = head_h[i].key;
         data.to = head_v[j].key;
         data.text = originalTable[i][j];
+        data.isEps = isEpsilon === true;
         linkDataArray.push(data);
       }
     }
   }
 
+  if (linkDataArray.length === 0) {
+    // This can happen in a degenerate case where the initial solution is not connected.
+    // The main loop should handle this, but we prevent a crash here.
+    return;
+  }
   let index = get_val_max(linkDataArray); // On recherche le lien possédant la valeur maximale
 
   let origin = linkDataArray[index].from;
@@ -181,6 +191,27 @@ const update_link = (
         }
       }
     }
+  }
+
+  // Normalisation des potentiels pour une meilleure lisibilité du graphe:
+  // on force le plus petit potentiel de source (Vx) à 0, en soustrayant
+  // la même constante à tous les noeuds (sources et destinations).
+  // Cette transformation conserve les égalités v_j = u_i + c_ij et les deltas Δ.
+  try {
+    const numSources = head_h.length; // même ordre que get_title
+    let minSource = Infinity;
+    for (let s = 0; s < numSources; s++) {
+      const val = Number(nodeDataArray[s].value);
+      if (isFinite(val) && val < minSource) minSource = val;
+    }
+    if (isFinite(minSource) && minSource !== 0) {
+      for (let t = 0; t < nodeDataArray.length; t++) {
+        const v = Number(nodeDataArray[t].value);
+        if (isFinite(v)) nodeDataArray[t].value = v - minSource;
+      }
+    }
+  } catch (e) {
+    // en cas d'absence de valeurs numériques (ne devrait pas arriver sur une base connectée), ne rien faire
   }
 };
 

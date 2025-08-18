@@ -195,21 +195,23 @@ $(document).ready(function () {
 
   $('[data-toggle="tooltip"]').tooltip();
 
-  // wave effect js
-  Waves.init();
-  Waves.attach('.flat-buttons', ['waves-button']);
-  Waves.attach('.float-buttons', ['waves-button', 'waves-float']);
-  Waves.attach('.float-button-light', [
-    'waves-button',
-    'waves-float',
-    'waves-light',
-  ]);
-  Waves.attach('.flat-buttons', [
-    'waves-button',
-    'waves-float',
-    'waves-light',
-    'flat-buttons',
-  ]);
+  // wave effect js (guard if Waves not loaded)
+  if (window.Waves && typeof Waves.init === 'function' && typeof Waves.attach === 'function') {
+    Waves.init();
+    Waves.attach('.flat-buttons', ['waves-button']);
+    Waves.attach('.float-buttons', ['waves-button', 'waves-float']);
+    Waves.attach('.float-button-light', [
+      'waves-button',
+      'waves-float',
+      'waves-light',
+    ]);
+    Waves.attach('.flat-buttons', [
+      'waves-button',
+      'waves-float',
+      'waves-light',
+      'flat-buttons',
+    ]);
+  }
 
   $('.form-control').on('blur', function () {
     if ($(this).val().length > 0) {

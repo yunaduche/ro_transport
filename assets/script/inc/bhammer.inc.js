@@ -11,6 +11,7 @@ const balas_hammer = (stock_col_str, stock_row_str, base_data_str) => {
   let data_init = init_array(base_data);
 
   source_number = stock_col.length;
+  if (typeof base_selection_trace !== 'undefined') base_selection_trace = [];
 
   let protection = 0; // Avoid infinite loops
   while (current_stock_col.some(s => s > 0) && current_stock_row.some(d => d > 0) && protection < 100) {
@@ -46,6 +47,11 @@ const balas_hammer = (stock_col_str, stock_row_str, base_data_str) => {
         current_stock_col[indexRow] -= allocation;
         current_stock_row[indexCol] -= allocation;
 
+        if (typeof base_selection_trace !== 'undefined') {
+          const cost = (data && data[indexRow]) ? data[indexRow][indexCol] : null;
+          base_selection_trace.push({ method: 'BALAS-HAMMER', i: indexRow, j: indexCol, cost, alloc: allocation });
+        }
+
         if (current_stock_col[indexRow] === 0) {
             set_row_zero(data, indexRow);
         }
@@ -57,11 +63,50 @@ const balas_hammer = (stock_col_str, stock_row_str, base_data_str) => {
   }
 
   if (is_degenerate_case(stock_col.concat(stock_row), data_init)) {
-    add_link(data_init);
+    add_link(data_init, base_data);
   }
 
   baseSolutionTable = data_init;
   originalTable = base_data;
+};
+
+// Variante pure BH pour comparaison/diagnostic (sans variables globales)
+const solve_balas_hammer_pure = (base_data, suppliesIn, demandsIn) => {
+  const data = base_data.map(arr => arr.slice());
+  const supplies = suppliesIn.slice();
+  const demands = demandsIn.slice();
+  const solution = init_array(base_data);
+  let protection = 0;
+  while (supplies.some(s => s > 0) && demands.some(d => d > 0) && protection < 200) {
+    const t_data = data.length > 0 && data[0].length > 0 ? data[0].map((_, colIndex) => data.map(row => row[colIndex])) : [];
+    if (t_data.length === 0) break;
+    const rowPen = min_difference(data, supplies);
+    const colPen = min_difference(t_data, demands);
+    const maxPenalty = Math.max(...rowPen, ...colPen);
+    if (!isFinite(maxPenalty)) break;
+    let rIdx, cIdx;
+    if (rowPen.includes(maxPenalty)) {
+      rIdx = rowPen.indexOf(maxPenalty);
+      const rowCosts = get_row(data, rIdx);
+      const minCost = Math.min(...rowCosts.filter(v => v !== null));
+      cIdx = rowCosts.indexOf(minCost);
+    } else {
+      cIdx = colPen.indexOf(maxPenalty);
+      const colCosts = get_col(data, cIdx);
+      const minCost = Math.min(...colCosts.filter(v => v !== null));
+      rIdx = colCosts.indexOf(minCost);
+    }
+    if (rIdx > -1 && cIdx > -1) {
+      const alloc = Math.min(supplies[rIdx], demands[cIdx]);
+      solution[rIdx][cIdx] = alloc;
+      supplies[rIdx] -= alloc;
+      demands[cIdx] -= alloc;
+      if (supplies[rIdx] === 0) set_row_zero(data, rIdx);
+      if (demands[cIdx] === 0) set_col_zero(data, cIdx);
+    }
+    protection++;
+  }
+  return solution;
 };
 
 const min_difference = (data, stock) => {

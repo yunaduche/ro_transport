@@ -59,12 +59,13 @@ const get_base_stock = () => {
  * @param {*} id
  */
 const get_base_stock_concat = () => {
-  let array = [];
-  let array_get_stock = ['.stock'];
-  array_get_stock.map((key) => {
-    array = [...array, get_data(key)];
-  });
-  return array;
+  // Concatène les offres (colonnes) et les demandes (lignes)
+  // pour obtenir un tableau plat de longueur m+n.
+  // Ceci est utilisé uniquement pour la détection de dégénérescence,
+  // où l'on a besoin du nombre total de nœuds (sources + destinations).
+  const supplies = get_data('.stock_col') || [];
+  const demands = get_data('.stock_row') || [];
+  return supplies.concat(demands);
 };
 
 /**

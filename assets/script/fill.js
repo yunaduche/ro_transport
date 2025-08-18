@@ -9,6 +9,8 @@ $(document).ready(function () {
 
   $('#generate-table').on('click', generateTable);
   $('#generate-random').on('click', generateRandomData);
+  $('#generate-degenerate').on('click', generateDegenerateData);
+  $('#generate-example').on('click', generateExampleData);
 });
 
 // --- Core Table Generation Functions ---
@@ -124,6 +126,172 @@ function generateRandomData() {
 }
 
 /**
+ * Fills the table with random data likely to cause a degenerate case.
+ */
+function generateDegenerateData() {
+  const numRows = body_id.length;
+  const numCols = head_id.length;
+
+  if (numRows < 2 || numCols < 2) {
+    swal('Erreur', 'Le cas dégénéré nécessite au moins 2 lignes et 2 colonnes.', 'error');
+    return;
+  }
+
+  // 1) Coûts aléatoires (peuvent être réutilisés sur plusieurs tentatives)
+  $('.content-data').each(function () {
+    $(this).val(Math.floor(Math.random() * 99) + 1);
+  });
+
+  const baseCosts = get_base_data().map(row => row.map(Number));
+
+  // Utilitaire de partition équilibrée sans zéros
+  const createPartitions = (n, total) => {
+    let partitions = [0, total];
+    for (let i = 0; i < n - 1; i++) partitions.push(Math.floor(Math.random() * total));
+    partitions.sort((a, b) => a - b);
+    const result = [];
+    for (let i = 0; i < partitions.length - 1; i++) result.push(partitions[i + 1] - partitions[i]);
+    return result.includes(0) ? createPartitions(n, total) : result;
+  };
+
+  const countPositiveAllocations = (matrix) => {
+    let count = 0;
+    for (let r = 0; r < matrix.length; r++) {
+      for (let c = 0; c < matrix[r].length; c++) {
+        if (matrix[r][c] && matrix[r][c] !== '0' && matrix[r][c] !== 'E' && matrix[r][c] !== 'ε') count++;
+      }
+    }
+    return count;
+  };
+
+  // Simulation non-destructive de Balas-Hammer
+  const simulateBalasHammer = (costs, suppliesIn, demandsIn) => {
+    const supplies = suppliesIn.slice();
+    const demands = demandsIn.slice();
+    const data = costs.map(row => row.slice());
+    const solution = init_array(costs);
+
+    let protection = 0;
+    while (supplies.some(s => s > 0) && demands.some(d => d > 0) && protection < 200) {
+      const t_data = data.length > 0 && data[0].length > 0 ? data[0].map((_, colIndex) => data.map(row => row[colIndex])) : [];
+      if (t_data.length === 0) break;
+
+      const rowPen = min_difference(data, supplies);
+      const colPen = min_difference(t_data, demands);
+      const maxPenalty = Math.max(...rowPen, ...colPen);
+      if (!isFinite(maxPenalty)) break;
+
+      let rIdx, cIdx;
+      if (rowPen.includes(maxPenalty)) {
+        rIdx = rowPen.indexOf(maxPenalty);
+        const rowCosts = get_row(data, rIdx);
+        const minCost = Math.min(...rowCosts.filter(v => v !== null));
+        cIdx = rowCosts.indexOf(minCost);
+      } else {
+        cIdx = colPen.indexOf(maxPenalty);
+        const colCosts = get_col(data, cIdx);
+        const minCost = Math.min(...colCosts.filter(v => v !== null));
+        rIdx = colCosts.indexOf(minCost);
+      }
+
+      if (rIdx > -1 && cIdx > -1) {
+        const alloc = Math.min(supplies[rIdx], demands[cIdx]);
+        solution[rIdx][cIdx] = alloc;
+        supplies[rIdx] -= alloc;
+        demands[cIdx] -= alloc;
+        if (supplies[rIdx] === 0) set_row_zero(data, rIdx);
+        if (demands[cIdx] === 0) set_col_zero(data, cIdx);
+      }
+      protection++;
+    }
+
+    const m = solution.length;
+    const n = solution[0]?.length || 0;
+    const nonZero = countPositiveAllocations(solution);
+    const isDegenerate = nonZero < (m + n - 1);
+    return { solution, isDegenerate };
+  };
+
+  // 2) Tenter plusieurs tirages jusqu'à obtenir un cas dégénéré (via simulation BH)
+  const maxAttempts = 25;
+  let attempt = 0;
+  let found = false;
+
+  while (attempt < maxAttempts && !found) {
+    const total = Math.floor(Math.random() * 50) + 50 * Math.max(numRows, numCols);
+    const supplies = createPartitions(numRows, total);
+    const demands = createPartitions(numCols, total);
+
+    const { isDegenerate } = simulateBalasHammer(baseCosts, supplies, demands);
+    if (isDegenerate) {
+      $('.stock_col').each(function (i) { $(this).val(supplies[i]); });
+      $('.stock_row').each(function (i) { $(this).val(demands[i]); });
+      $('#total-cell').text(total);
+      found = true;
+      break;
+    }
+    attempt++;
+  }
+
+  if (found) return;
+
+  // 3) Plan de repli: forcer des égalités répétées (augmente fortement la proba de dégénérescence)
+  const s = Math.floor(Math.random() * 40) + 20; // taille bloc
+  const suppliesFallback = Array.from({ length: numRows }, () => s);
+  let demandsFallback = Array.from({ length: Math.max(1, numCols - 1) }, () => s);
+  const totalFallback = suppliesFallback.reduce((a, b) => a + b, 0);
+  const lastDemand = Math.max(1, totalFallback - demandsFallback.reduce((a, b) => a + b, 0));
+  demandsFallback = demandsFallback.concat([lastDemand]);
+
+  $('.stock_col').each(function (i) { $(this).val(suppliesFallback[i]); });
+  $('.stock_row').each(function (i) { $(this).val(demandsFallback[i]); });
+  $('#total-cell').text(totalFallback);
+}
+
+/**
+ * Fills the table with the provided 4x6 example matrix.
+ * Costs matrix (rows A..D, cols 1..6), supplies [50,60,20,90], demands [40,30,70,20,40,20].
+ */
+function generateExampleData() {
+  // Ensure table is 4x6
+  $('#rows').val(4);
+  $('#cols').val(6);
+  generateTable();
+
+  const costs = [
+    [19, 12, 14, 6, 9, 10],
+    [7, 3, 4, 7, 6, 5],
+    [6, 5, 9, 11, 3, 11],
+    [8, 7, 11, 2, 6, 12],
+  ];
+  const supplies = [50, 60, 20, 90];
+  const demands = [40, 30, 70, 20, 40, 20];
+
+  // Fill costs
+  $('.data-row').each(function (rowIndex) {
+    $(this)
+      .find('.content-data')
+      .each(function (colIndex) {
+        $(this).val(costs[rowIndex][colIndex]);
+      });
+  });
+
+  // Fill supplies (offres)
+  $('.stock_col').each(function (i) {
+    $(this).val(supplies[i]);
+  });
+
+  // Fill demands (demandes)
+  $('.stock_row').each(function (i) {
+    $(this).val(demands[i]);
+  });
+
+  // Optional: set total cell if displayed
+  const total = supplies.reduce((a, b) => a + b, 0); // should equal sum of demands
+  $('#total-cell').text(total);
+}
+
+/**
  * Displays the final optimal solution in a separate, clear table.
  */
 function displayFinalSolutionTable() {
@@ -153,8 +321,14 @@ function displayFinalSolutionTable() {
       const cost = costs[rowIndex][colIndex];
       const allocation = finalSolution[rowIndex][colIndex];
       let cellContent = `<div class="final-cost">${cost}</div>`;
-      if (allocation !== '0' && allocation != 0) {
-        cellContent += `<div class="final-allocation">${allocation}</div>`;
+      // Normaliser l'affectation pour l'affichage: ne jamais afficher de '0'
+      const allocIsNaNLike = !isFinite(Number(allocation)) && allocation !== '0' && allocation !== 0 && allocation !== 'E' && allocation !== 'ε';
+      const normalized = allocIsNaNLike ? 'ε' : allocation;
+      const isEps = normalized === 'E' || normalized === 'ε';
+      const isZero = normalized === 0 || normalized === '0' || Number(normalized) === 0;
+      const displayAllocation = isEps ? '' : (isZero ? '' : String(normalized));
+      if (displayAllocation !== '') {
+        cellContent += `<div class="final-allocation">${displayAllocation}</div>`;
       }
       output += `<td>${cellContent}</td>`;
     });
@@ -173,6 +347,19 @@ function displayFinalSolutionTable() {
 
 
 // --- Result Display Functions (Tabs, Iterations, etc.) ---
+// Helper to count strictly positive numeric allocations (excl. ε)
+const countPositiveAllocationsOnly = (matrix) => {
+  let count = 0;
+  for (let r = 0; r < matrix.length; r++) {
+    for (let c = 0; c < matrix[r].length; c++) {
+      const v = matrix[r][c];
+      if (v === 'E' || v === 'ε') continue;
+      const n = Number(v);
+      if (isFinite(n) && n > 0) count++;
+    }
+  }
+  return count;
+};
 const click = () => {
   $('.tab-link').on('click', function () {
     let tab_id = $(this).attr('data-tab');
@@ -206,7 +393,12 @@ const fill_result = (id) => {
 
     // Box 1: Solution Table
     output += '<div class="result-box solution-box">';
-    let stepTitle = i === solution_data.length - 1 ? 'Solution Optimale' : `Solution d'étape ${i + 1}`;
+    let stepTitle;
+    if (i === 0) {
+      stepTitle = `Solution de base (Méthode: ${current_method_name || '—'})`;
+    } else {
+      stepTitle = i === solution_data.length - 1 ? 'Solution Optimale' : `Solution d\'étape ${i + 1}`;
+    }
     output += `<h5>${stepTitle}</h5>`;
     output += '<div class="table-container-step">';
     output += '<table class="table table-bordered table-step">';
@@ -217,7 +409,13 @@ const fill_result = (id) => {
       output += '<tr>';
       output += `<td><b>Source ${body_id[j]}</b></td>`;
       solution_data[i][j].forEach(value => {
-        let val = (value == '0' || value == 0) ? '-' : `<b>${value}</b>`;
+        const isNaNLike = !isFinite(Number(value)) && value !== '0' && value !== 0 && value !== 'E' && value !== 'ε';
+        const normalized = isNaNLike ? 'ε' : value;
+        const isEps = normalized === 'E' || normalized === 'ε';
+        const isZero = normalized === 0 || normalized === '0' || Number(normalized) === 0;
+        // Afficher explicitement 'ε' pour les cases basiques dégénérées
+        const displayValue = isEps ? 'ε' : (isZero ? '-' : String(normalized));
+        let val = `<b>${displayValue}</b>`;
         output += `<td>${val}</td>`;
       });
       output += `<td>${get_data('.stock_col')[j]}</td>`;
@@ -229,6 +427,8 @@ const fill_result = (id) => {
     output += '</table>';
     output += '</div>'; // table-container-step
     output += '</div>';
+
+    // Section supprimée: Construction de la base
 
     // Box 2: Schema
     output += '<div class="result-box">';
@@ -247,8 +447,14 @@ const fill_result = (id) => {
     // Box 4: Cost
     output += '<div class="result-box">';
     output += `<h5>Coût de l'étape (Z)</h5>`;
-    output += `<span class="form-control">${z_data[i].toLocaleString()}</span>`;
+    const zVal = z_data && z_data[i] !== undefined ? z_data[i] : null;
+    const zDisplay = (zVal === null) ? '—' : Number(zVal).toLocaleString();
+    output += `<span class="form-control">${zDisplay}</span>`;
     output += '</div>';
+
+    // Section supprimée: Comparaison base alternative (MINITAB/Balas)
+
+    // Section supprimée: Indicateurs
 
     output += '</div></div>';
   }
@@ -259,7 +465,8 @@ const fill_tree_result = () => {
   for (let i = 0; i < solution_data.length; i++) {
     // Call the new graph renderer (vis.js) if present, else fallback to GoJS
     if (typeof init_graph === 'function') {
-      init_graph(i, noeuds, link_data[i]);
+      const cyclePath = typeof cycle_paths_data !== 'undefined' ? cycle_paths_data[i] : null;
+      init_graph(i, noeuds, link_data[i], cyclePath);
     } else if (typeof init_graph_gojs === 'function') {
       init_graph_gojs(i, noeuds, link_data[i]);
     }
@@ -274,15 +481,16 @@ const fill_gains = (id) => {
 
     let output = '';
     step[i].forEach(item => {
-      let gainCalculation = '';
       let itemStyle = '';
       if (item.res !== 'P') {
         itemStyle = 'style="color: var(--danger-color); font-weight: bold;"';
-        gainCalculation = ` => Gain = ${item.res} * ${item.coef} = <b>${item.gain}</b>`;
       }
+      // Notation mathématique: Δ_{ij} = u_i + c_{ij} − v_j
+      const showGain = (item.res !== 'P');
+      // L’interface affiche uniquement le signe N/P selon δ; on ne multiplie plus par le coefficient
+      const gainText = showGain ? ` :N` : '';
       output += `<li ${itemStyle}>`;
-      output += `G(${item.key_1}, ${item.key_2}) = ${item.v_1} + ${item.c_} - ${item.v_2} = <b>${item.res}</b>`;
-      output += gainCalculation;
+      output += `Δ<sub>${item.key_1},${item.key_2}</sub> = u<sub>${item.key_1}</sub> + c<sub>${item.key_1},${item.key_2}</sub> − v<sub>${item.key_2}</sub> = <b>${item.v_1}</b> + <b>${item.c_}</b> − <b>${item.v_2}</b> = <b>${item.res}</b>${gainText}`;
       output += `</li>`;
     });
     gainList.append(output);
@@ -296,8 +504,14 @@ const empty_array = () => {
   originalTable = [];
   solution_data = [];
   link_data = [];
+  cycle_paths_data = []; // Holds the cycle path for each iteration
   z_data = [];
   step = [];
   noeuds = [];
   gainMaximum = {};
+  // Reset diagnostics/comparaison
+  if (typeof base_selection_trace !== 'undefined') base_selection_trace = [];
+  if (typeof current_method_name !== 'undefined') current_method_name = '';
+  if (typeof compare_other_solution !== 'undefined') compare_other_solution = null;
+  if (typeof compare_other_method_label !== 'undefined') compare_other_method_label = '';
 };

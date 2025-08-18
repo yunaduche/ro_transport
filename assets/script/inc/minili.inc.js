@@ -55,7 +55,7 @@ const minili = (data, data_sort, data_stock) => {
 
   // cas dégénerer
   if (is_degenerate_case(get_base_stock_concat(), base_data_tmp))
-    add_link(base_data_tmp);
+    add_link(base_data_tmp, get_base_data());
 
   baseSolutionTable = [...base_data_tmp];
   originalTable = get_base_data();

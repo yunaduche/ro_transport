@@ -3,113 +3,90 @@
 // - Circle nodes with dashed borders showing only the key (A, B, 1, 2, ...)
 // - Potentials Vx/Vy drawn as separate text labels near each node
 // - Edges for all (i,j): label = cost c(i,j); tooltip shows Δ = u + c − v; non-basic edges dashed
-function init_graph(containerId, nodesData, edgesData) {
+function init_graph(containerId, nodesData, edgesData, cyclePath) {
   const container = document.getElementById('tree' + containerId);
-  if (!container) {
-    console.error('Graph container not found:', 'tree' + containerId);
+  if (!container) return;
+  container.innerHTML = '';
+  if (!Array.isArray(nodesData) || nodesData.length === 0) {
+    container.innerHTML = '<div style="text-align:center; padding-top: 20px; color: #6c757d;">Pas de graphe pour cette étape.</div>';
     return;
   }
 
-  if (!nodesData || !Array.isArray(nodesData) || nodesData.length === 0) {
-    container.innerHTML = '<div style="text-align:center; padding-top: 20px; color: #6c757d;">Pas de cycle à afficher pour cette étape.</div>';
-    return;
-  }
-
-  // Lookup for nodes by key
   const nodeByKey = new Map();
   nodesData.forEach(n => nodeByKey.set(n.key, n));
-
-  // Extract source/destination keys order from nodesData
   const sources = nodesData.filter(n => n.type === 'source');
   const destinations = nodesData.filter(n => n.type === 'destination');
 
-  // Fixed layout similar to the image: two columns
-  const xLeft = -220;
-  const xRight = 220;
-  const yStepLeft = 100;
-  const yStepRight = 70;
+  const width = container.clientWidth || 600;
+  const height = container.clientHeight || 280;
+  const svg = d3.select(container).append('svg').attr('width', width).attr('height', height);
 
-  // Helper to compute fixed positions
-  const positionByKey = new Map();
-  sources.forEach((n, idx) => positionByKey.set(n.key, { x: xLeft, y: (idx + 1) * yStepLeft }));
-  destinations.forEach((n, idx) => positionByKey.set(n.key, { x: xRight, y: (idx + 1) * yStepRight }));
+  // Calcul de positions fixes (gauche/droite)
+  const yStepLeft = Math.max(50, Math.min(120, Math.floor(height / (sources.length + 1))));
+  const yStepRight = Math.max(40, Math.min(100, Math.floor(height / (destinations.length + 1))));
+  const positions = new Map();
+  sources.forEach((n, idx) => positions.set(n.key, { x: 60, y: (idx + 1) * yStepLeft }));
+  destinations.forEach((n, idx) => positions.set(n.key, { x: width - 60, y: (idx + 1) * yStepRight }));
 
-  // Create main circle nodes
-  const circleNodes = sources.concat(destinations).map(n => {
-    const pos = positionByKey.get(n.key) || { x: 0, y: 0 };
-    return {
-      id: n.key,
-      label: String(n.key),
-      shape: 'circle',
-      shapeProperties: { borderDashes: [4, 4] },
-      font: { size: 16, color: '#333' },
-      color: { border: '#444', background: '#fff' },
-      x: pos.x,
-      y: pos.y,
-      physics: false,
-      fixed: { x: true, y: true },
-    };
-  });
+  // Arêtes: privilégier allocations > 0; autoriser un très petit nombre d'arêtes epsilon pour connexité visuelle
+  let epsAdded = 0;
+  // Afficher toutes les arêtes basiques (y compris ε) pour que la base atteigne m+n−1
+  const edges = (edgesData || [])
+    .filter(e => nodeByKey.has(e.from) && nodeByKey.has(e.to));
 
-  // Create separate text nodes for potentials Vx/Vy positioned beside nodes
-  const potentialTextNodes = sources.concat(destinations).map(n => {
-    const pos = positionByKey.get(n.key) || { x: 0, y: 0 };
-    const isSource = n.type === 'source';
-    const potentialLabel = (n.value !== null && n.value !== undefined) ? String(n.value) : '?';
-    const offset = isSource ? -30 : 30; // left for sources, right for destinations
-    return {
-      id: `pot_${n.key}`,
-      label: potentialLabel,
-      shape: 'text',
-      font: { size: 14, color: '#000' },
-      x: pos.x + offset,
-      y: pos.y,
-      physics: false,
-      fixed: { x: true, y: true },
-      selectable: false,
-      chosen: false,
-      title: (isSource ? 'Vx' : 'Vy') + ' = ' + potentialLabel,
-    };
-  });
+  // Traits
+  svg.append('g')
+    .selectAll('line')
+    .data(edges)
+    .enter()
+    .append('line')
+    .attr('x1', d => positions.get(d.from).x)
+    .attr('y1', d => positions.get(d.from).y)
+    .attr('x2', d => positions.get(d.to).x)
+    .attr('y2', d => positions.get(d.to).y)
+    .attr('stroke', d => d.isEps ? '#c0c0c0' : '#6c757d')
+    .attr('stroke-width', d => d.isEps ? 1 : 1.5)
+    .attr('stroke-dasharray', d => d.isEps ? '4,3' : null);
 
-  // Build a set of basic edges (those passed in edgesData)
-  const basicSet = new Set();
-  (edgesData || []).forEach(e => basicSet.add(`${e.from}->${e.to}`));
+  // Labels d'arêtes (coût uniquement, sans Δ pour épurer)
+  svg.append('g')
+    .selectAll('text.edge-label')
+    .data(edges)
+    .enter()
+    .append('text')
+    .attr('class', 'edge-label')
+    .attr('x', d => (positions.get(d.from).x + positions.get(d.to).x) / 2)
+    .attr('y', d => (positions.get(d.from).y + positions.get(d.to).y) / 2 - 6)
+    .attr('text-anchor', 'middle')
+    .attr('font-size', 11)
+    .attr('fill', d => d.isEps ? '#999' : '#343a40')
+    .text(d => String(d.text));
 
-  // Only render basic edges of the current solution (less clutter)
-  const allEdges = (edgesData || []).map(e => ({ from: e.from, to: e.to, text: Number(e.text) }));
+  // Nœuds sources
+  const sourceGroup = svg.append('g').selectAll('g.source')
+    .data(sources)
+    .enter()
+    .append('g')
+    .attr('transform', d => `translate(${positions.get(d.key).x},${positions.get(d.key).y})`);
 
-  // Convert to vis edges with label=cost, tooltip shows delta; only basic edges drawn
-  const visEdges = allEdges.map(e => {
-    const fromNode = nodeByKey.get(e.from);
-    const toNode = nodeByKey.get(e.to);
-    const u = fromNode ? Number(fromNode.value ?? 0) : 0;
-    const v = toNode ? Number(toNode.value ?? 0) : 0;
-    const c = Number(e.text);
-    const g = u + c - v;
-    const isBasic = basicSet.has(`${e.from}->${e.to}`);
-    if (!isBasic) return null; // skip non-basic to declutter
-    const isImproving = g < 0;
-    return {
-      from: e.from,
-      to: e.to,
-      label: String(c),
-      title: `u(${e.from}) + c(${e.from},${e.to}) - v(${e.to}) = ${u} + ${c} - ${v} = ${g}`,
-      arrows: 'to',
-      color: isImproving ? '#dc3545' : '#6c757d',
-      font: { color: isImproving ? '#dc3545' : '#6c757d', align: 'top' },
-      smooth: { enabled: true, type: 'cubicBezier', roundness: 0.6 },
-    };
-  }).filter(Boolean);
+  sourceGroup.append('circle').attr('r', 18).attr('fill', '#fff').attr('stroke', '#444');
+  sourceGroup.append('text').attr('text-anchor', 'middle').attr('dy', '0.35em').attr('font-weight', '600').text(d => d.key);
+  sourceGroup.append('text').attr('x', -28).attr('dy', '0.35em').attr('font-size', 12).text(d => (d.value ?? '?'));
 
-  const nodes = new vis.DataSet(circleNodes.concat(potentialTextNodes));
-  const edges = new vis.DataSet(visEdges);
-  const data = { nodes, edges };
+  // Nœuds destinations
+  const destGroup = svg.append('g').selectAll('g.dest')
+    .data(destinations)
+    .enter()
+    .append('g')
+    .attr('transform', d => `translate(${positions.get(d.key).x},${positions.get(d.key).y})`);
 
-  const options = {
-    physics: false, // fixed positions
-    interaction: { dragNodes: false, dragView: true, zoomView: true },
-  };
+  destGroup.append('circle').attr('r', 18).attr('fill', '#fff').attr('stroke', '#444');
+  destGroup.append('text').attr('text-anchor', 'middle').attr('dy', '0.35em').attr('font-weight', '600').text(d => d.key);
+  destGroup.append('text').attr('x', 28).attr('dy', '0.35em').attr('font-size', 12).text(d => (d.value ?? '?'));
 
-  new vis.Network(container, data, options);
+  // Superposition: cycle d'amélioration (si fourni)
+  // Ne pas afficher le cycle (lignes/overlays) sur le graphe
+  if (Array.isArray(cyclePath) && cyclePath.length > 0) {
+    // Intentionally left blank: cycle overlay disabled per request
+  }
 }

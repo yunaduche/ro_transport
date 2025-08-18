@@ -5,7 +5,6 @@
   <meta charset="UTF-8" />
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <!-- <link rel="stylesheet" type="text/css" href="assets/css/bootstrap/css/bootstrap.min.css" /> -->
   <link rel="stylesheet" type="text/css" href="assets/vendor/sweetalert/sweetalert.css" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/vis/4.21.0/vis.min.css" type="text/css" />
   <link rel="stylesheet" href="assets/css/style.css" />
@@ -15,8 +14,7 @@
 <body>
   <div class="container">
     <header class="main-header">
-      <h1>Problème de Transport</h1>
-      <p>Un outil pour la résolution de problèmes de transport par la recherche opérationnelle.</p>
+      <h1>Problème de Transport B.Hammer et MINITAB</h1>
     </header>
 
     <div class="main-grid-container">
@@ -36,6 +34,8 @@
           <div class="setup-buttons">
             <button type="button" id="generate-table" class="btn btn-primary">Générer</button>
             <button type="button" id="generate-random" class="btn btn-secondary">Aléatoire</button>
+            
+            <button type="button" id="generate-example" class="btn btn-secondary">Exemple (4×6)</button>
           </div>
         </div>
 
@@ -44,10 +44,7 @@
           <label for="method">Méthode de départ</label>
           <select class="form-control method" id="method">
             <option value="2">Balas Hammer</option>
-            <option value="3">Coin Nord-Ouest (CNO)</option>
-            <option value="4">Coûts Minima (Minico)</option>
-            <option value="1">Lignes Minima (Minili)</option>
-            <option value="5">Colonnes Minima (Minitab)</option>
+            <option value="5">MINITAB</option>
           </select>
         </div>
 
@@ -88,13 +85,14 @@
 </body>
 <!-- DEBUT PREREQUIS -->
 <script type="text/javascript" src="assets/js/jquery/jquery.min.js "></script>
+<script type="text/javascript" src="assets/js/jquery-ui/jquery-ui.min.js"></script>
 <script type="text/javascript" src="assets/js/animation.js"></script>
-<!-- <script type="text/javascript" src="assets/js/vertical/menu/menu-static.js"></script> -->
-<!-- <script type="text/javascript" src="assets/js/vertical/menu/vertical-layout.js"></script> -->
 <script type="text/javascript" src="assets/js/pcoded.min.js"></script>
 <script type="text/javascript" src="assets/js/script.js"></script>
 
-<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/vis/4.21.0/vis.min.js"></script>
+<!-- Alternative renderer libs -->
+<script src="https://unpkg.com/d3@7/dist/d3.min.js"></script>
+<script type="text/javascript" src="https://unpkg.com/cytoscape@3.26.0/dist/cytoscape.min.js"></script>
 <script type="text/javascript" src="assets/js/graph-renderer.js"></script>
 <script type="text/javascript" src="assets/script/fill.js"></script>
 <script type="text/javascript" src="assets/script/inc/get.inc.js"></script>
@@ -103,9 +101,6 @@
 
 <!-- DEBUT METHODE DE RESOLUTION -->
 <script type="text/javascript" src="assets/script/inc/bhammer.inc.js"></script>
-<script type="text/javascript" src="assets/script/inc/minili.inc.js"></script>
-<script type="text/javascript" src="assets/script/inc/cno.inc.js"></script>
-<script type="text/javascript" src="assets/script/inc/minico.inc.js"></script>
 <script type="text/javascript" src="assets/script/inc/minitab.inc.js"></script>
 <!-- FIN METHODE DE RESOLUTION -->
 

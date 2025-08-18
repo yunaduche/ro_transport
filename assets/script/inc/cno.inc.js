@@ -4,7 +4,7 @@ const cno = (data, data_stock) => {
   let i = 0; // position de ligne
 
   source_number = get_data('.stock_col').length;
-  console.log('mika')
+  // log supprimé
   // fin prérequis
 
   //début traitement
@@ -38,7 +38,7 @@ const cno = (data, data_stock) => {
 
   // cas dégénerer
   if (is_degenerate_case(get_base_stock_concat(), base_data_tmp))
-    add_link(base_data_tmp);
+    add_link(base_data_tmp, get_base_data());
 
   baseSolutionTable = [...base_data_tmp];
   // alert(baseSolutionTable);

@@ -1,44 +1,79 @@
 const set_gains = () => {
   const gain = gainMaximum.coefficient;
-  for (let i = 0; i < gainMaximum.chemin.length; i++) {
-    let ligne = gainMaximum.chemin[i].ligne;
-    let colonne = gainMaximum.chemin[i].colonne;
 
-    if (gainMaximum.chemin[i].marque == '+') {
-      if (baseSolutionTable[ligne][colonne] == 'E')
-        baseSolutionTable[ligne][colonne] = gain;
-      else
-        baseSolutionTable[ligne][colonne] =
-          Number(baseSolutionTable[ligne][colonne]) + Number(gain);
+  // Special case: epsilon coefficient -> do not pivot to avoid moving ε
+  // Practically, if only improvements of type '-E' exist, consider the solution optimal
+  if (gain === 'E' || gain === 'ε') {
+    // Effectuer un pivot symbolique (échange de base) sans mouvement quantitatif
+    perform_symbolic_pivot(gainMaximum.chemin);
+    sanitize_base_solution();
+    if (is_degenerate_case(noeuds, baseSolutionTable)) add_link(baseSolutionTable, originalTable);
+    return;
+  }
+
+  // Standard numeric case
+  for (let i = 0; i < gainMaximum.chemin.length; i++) {
+    const row = gainMaximum.chemin[i].ligne;
+    const col = gainMaximum.chemin[i].colonne;
+    const mark = gainMaximum.chemin[i].marque;
+    let current = baseSolutionTable[row][col];
+
+    const isEps = current === 'E' || current === 'ε';
+    const isZero = current === 0 || current === '0';
+
+    if (mark === '+') {
+      // If the cell is ε, it becomes numeric = gain
+      if (isEps || isZero) {
+        const g = Number(gain);
+        baseSolutionTable[row][col] = isFinite(g) ? g : 0;
+      } else {
+        current = Number(current);
+        const g = Number(gain);
+        baseSolutionTable[row][col] = isFinite(g) && isFinite(current) ? current + g : 0;
+      }
     } else {
-      if (baseSolutionTable[ligne][colonne] != 'E')
-        baseSolutionTable[ligne][colonne] =
-          Number(baseSolutionTable[ligne][colonne]) - Number(gain);
+      // mark '-'
+      if (isEps) {
+        // Ne remplace pas ε par 0 en cas de pivot avec gain numérique; ε reste basique à ε (il quittera la base uniquement via un pivot symbolique)
+        // Ici on n'altère pas la case ε lorsque la marque est '-'.
+      } else {
+        current = Number(current);
+        const g = Number(gain);
+        let next = (isFinite(current) && isFinite(g)) ? current - g : 0;
+        if (!isFinite(next) || isNaN(next) || next < 0) next = 0;
+        baseSolutionTable[row][col] = next;
+      }
     }
   }
-  console.log('set gain')
-  if (is_degenerate_case(noeuds, baseSolutionTable))
-    add_link(baseSolutionTable, noeuds);
-  // return baseSolutionTable;
+
+  sanitize_base_solution();
+  if (is_degenerate_case(noeuds, baseSolutionTable)) add_link(baseSolutionTable, originalTable);
 };
 
 const get_gains = () => {
-  let listChemin = [];
-  let indexOfMaximumGain;
-  let copieTableBaseSolution = baseSolutionTable.map(function (arr) {
-    return arr.slice();
-  });
-  console.log('get gain')
-  solution_data = [...solution_data, copieTableBaseSolution];
+  let pathList = [];
+  let maxGainIndex;
+  let baseSolutionCopy = baseSolutionTable.map(arr => arr.slice());
+  console.log('get gain');
+  solution_data = [...solution_data, baseSolutionCopy];
 
   let result = [];
+  const numSources = Number(source_number);
+  // Rétablir la logique initiale: on attend que `noeuds` ait m sources suivies de n destinations
+  const safeNumSources = isFinite(numSources) && numSources > 0 ? numSources : (Array.isArray(body_id) ? body_id.length : (noeuds ? Math.floor(noeuds.length / 2) : 0));
   for (let i = 0; i < baseSolutionTable.length; i++) {
     for (let j = 0; j < baseSolutionTable[i].length; j++) {
       if (baseSolutionTable[i][j] == 0) {
-        let resultat =
-          Number(noeuds[i].value) +
-          Number(originalTable[i][j]) -
-          Number(noeuds[j + source_number].value);
+        const srcNode = noeuds && noeuds[i];
+        const destIndex = j + safeNumSources;
+        const dstNode = noeuds && noeuds[destIndex];
+        if (!srcNode || !dstNode) {
+          // Incohérence de construction des noeuds; on saute cette case
+          continue;
+        }
+        // Calcul du coût marginal (potentiel réduit) selon la logique attendue:
+        // δ(i,j) = Vx_i + C(i,j) − Vy_j
+        let res = Number(srcNode.value) + Number(originalTable[i][j]) - Number(dstNode.value);
         let data = {
           key_1: '',
           key_2: '',
@@ -49,38 +84,41 @@ const get_gains = () => {
           coef: '',
           gain: '',
         };
-        data.key_1 = noeuds[i].key;
-        data.key_2 = noeuds[j + source_number].key;
-        data.v_1 = Number(noeuds[i].value);
+        data.key_1 = srcNode.key;
+        data.key_2 = dstNode.key;
+        data.v_1 = Number(srcNode.value);
         data.c_ = Number(originalTable[i][j]);
-        data.v_2 = Number(noeuds[j + source_number].value);
+        data.v_2 = Number(dstNode.value);
         // result.push(data);
-        if (resultat >= 0) {
+        if (res >= 0) {
           data.res = 'P';
           data.coef = '';
           data.gain = '';
         }
-        // Si il y a des valeurs négatives, nous allons calculer les gains
+        // If there are negative values, calculate gains
         else {
-          let chemin = mark(copieTableBaseSolution, i, j);
-          let coefficient = get_min_val_index(chemin);
-          data.res = resultat;
+          let path = mark(baseSolutionCopy, i, j);
+          let coefficient = get_min_val_index(path);
+          data.res = res;
           data.coef = coefficient;
-          // Si c'est égale à Eupsilone
-          if (coefficient == 'E') {
-            listChemin.push({
+          // Si le coefficient minimal est epsilon, on marque un pivot symbolique
+          if (coefficient == 'E' || coefficient == 'ε') {
+            pathList.push({
               coefficient: coefficient,
-              gain: '-E',
-              chemin: chemin,
+              gain: '-E', // indicateur spécial pour pivot symbolique
+              chemin: path,
             });
             data.gain = '-E';
           } else {
-            listChemin.push({
+            // Sélection désormais basée UNIQUEMENT sur δ (le coût marginal),
+            // conformément à la méthode standard (MODI/Stepping Stone).
+            // On garde néanmoins le coefficient pour l'étape d'ajustement des flux.
+            pathList.push({
               coefficient: coefficient,
-              gain: (resultat * coefficient).toString(),
-              chemin: chemin,
+              gain: Number(res), // critère de choix: le δ le plus négatif
+              chemin: path,
             });
-            data.gain = Number(resultat) * Number(coefficient);
+            data.gain = Number(res);
           }
         }
         result.push(data);
@@ -89,9 +127,16 @@ const get_gains = () => {
   }
 
   step = [...step, result];
-  if (listChemin.length > 0) {
-    indexOfMaximumGain = get_max_val_index(listChemin);
-    gainMaximum = listChemin[indexOfMaximumGain]; // On initialise la variable global gainMaximum
+  if (pathList.length > 0) {
+    maxGainIndex = get_max_val_index(pathList);
+    gainMaximum = pathList[maxGainIndex];
+    // If best gain is '-E', perform a symbolic pivot to change the basis (degenerate step)
+    if (gainMaximum && gainMaximum.gain === '-E') {
+      perform_symbolic_pivot(gainMaximum.chemin);
+      sanitize_base_solution();
+      if (is_degenerate_case(noeuds, baseSolutionTable)) add_link(baseSolutionTable, originalTable);
+      return;
+    }
     set_gains();
   } else {
     var_init = 1;
@@ -182,48 +227,125 @@ const is_correct_way_row = (table, ligne, colonne, finalRow) => {
 
 // Recherche du minimum dans le mark -
 const get_min_val_index = (chemin) => {
-  let minimum = chemin[1].value;
+  // Recherche le minimum parmi les cases marquées '-' ;
+  // si l'une d'elles est ε, on renvoie 'E' (ε) pour signaler un déplacement symbolique
+  let minimum = null;
   for (let i = 1; i < chemin.length; i++) {
-    if (chemin[i].value == 'E' && chemin[i].marque == '-') {
-      minimum = chemin[i].value;
-    }
-    if (
-      chemin[i].value != 'E' &&
-      chemin[i].value < minimum &&
-      chemin[i].marque == '-'
-    )
-      minimum = chemin[i].value;
+    if (chemin[i].marque !== '-') continue;
+    const v = chemin[i].value;
+    if (v === 'E' || v === 'ε') return 'E';
+    const num = Number(v);
+    if (!isFinite(num)) continue;
+    if (minimum === null || num < minimum) minimum = num;
   }
-  return minimum;
+  // Si le minimum est 0, c'est un pivot dégénéré: traiter comme 'E' pour échanger la base symboliquement
+  if (minimum === 0) return 'E';
+  // Par sécurité si aucune valeur valide, on retourne 0 (aucun mouvement)
+  return minimum === null ? 0 : minimum;
 };
 
-//Recherche du gain maximal avant de l'appliquer
+// Choisir l'index du meilleur mouvement selon δ le plus négatif, avec tie-break:
+// 1) On privilégie tout mouvement avec gain numérique (δ < 0)
+// 2) Parmi les δ minimaux (à tolérance près), on choisit celui qui a le plus grand coefficient
+// 3) Sinon, s'il n'existe que des pivots symboliques ('-E'), on retourne le premier '-E'
 const get_max_val_index = (liste) => {
-  let max = liste[0].gain;
-  let index = 0;
-  for (let i = 1; i < liste.length; i++) {
-    if (max != '-E' && liste[i].gain != '-E') {
-      if (max > liste[i].gain) {
-        // on utilise l'operateur > car c'est un nombre negative, alors le maximum de gain sera le plus petit
-        max = liste[i].gain;
-        index = i;
+  if (!Array.isArray(liste) || liste.length === 0) return 0;
+  const TOL = 1e-9;
+  let bestIndex = -1;
+  let minGain = Infinity;
+  let bestCoef = -Infinity;
+
+  for (let i = 0; i < liste.length; i++) {
+    const g = Number(liste[i].gain);
+    if (!isFinite(g)) continue; // ignore '-E' ici
+    const coefNum = Number(liste[i].coefficient);
+    if (g < minGain - TOL) {
+      // nouveau meilleur δ (plus négatif)
+      minGain = g;
+      bestCoef = isFinite(coefNum) ? coefNum : -Infinity;
+      bestIndex = i;
+    } else if (Math.abs(g - minGain) <= TOL) {
+      // tie sur δ: choisir le plus grand coefficient autorisé
+      const c = isFinite(coefNum) ? coefNum : -Infinity;
+      if (c > bestCoef) {
+        bestCoef = c;
+        bestIndex = i;
       }
     }
-    if (max == '-E' && liste[i].gain != '-E') {
-      // on change la valeur de max par le premier nombre différent de -E
-      max = liste[i].gain;
-      index = i;
+  }
+
+  if (bestIndex !== -1) return bestIndex;
+  // Aucun gain numérique: retourner le premier '-E' si présent (pivot symbolique)
+  for (let i = 0; i < liste.length; i++) if (liste[i].gain === '-E') return i;
+  return 0;
+};
+
+// Pivot dégénéré correct: choisir une case '-' basique à 0 (ou ε) comme sortante, et la case entrante '+' devient basique à ε
+const perform_symbolic_pivot = (chemin) => {
+  if (!Array.isArray(chemin) || chemin.length === 0) return;
+  // Case entrante: premier élément (marque '+')
+  const enter = chemin[0];
+  const enterRow = enter.ligne;
+  const enterCol = enter.colonne;
+
+  // Choisir la case sortante parmi les positions marquées '-' avec valeur 0 ou ε
+  let leave = null;
+  for (let k = 1; k < chemin.length; k++) {
+    const step = chemin[k];
+    if (step.marque !== '-') continue;
+    const v = baseSolutionTable[step.ligne][step.colonne];
+    if (v === 'E' || v === 'ε' || Number(v) === 0) {
+      leave = step;
+      break;
     }
   }
-  return index;
+  if (!leave) return;
+
+  // Effectuer le pivot dégénéré: la case entrante devient basique à ε, la case sortante quitte la base (0)
+  baseSolutionTable[enterRow][enterCol] = 'ε';
+  baseSolutionTable[leave.ligne][leave.colonne] = 0;
 };
 
 const calculer_z = (data, arr) => {
   let z = 0;
   for (let i = 0; i < data.length; i++) {
     for (let j = 0; j < data[i].length; j++) {
-      if (arr[i][j] != 'E') z += data[i][j] * arr[i][j];
+      const x = arr[i][j];
+      // Ignorer les cases non basiques marquées epsilon
+      if (x === 'E' || x === 'ε') continue;
+      const cost = Number(data[i][j]);
+      const qty = Number(x);
+      if (!isFinite(cost) || !isFinite(qty) || qty === 0) continue;
+      z += cost * qty;
     }
   }
   return z;
+};
+
+// Nettoie la table de base pour éviter toute apparition de NaN ou de types incohérents
+const sanitize_base_solution = () => {
+  for (let i = 0; i < baseSolutionTable.length; i++) {
+    for (let j = 0; j < baseSolutionTable[i].length; j++) {
+      const v = baseSolutionTable[i][j];
+      // Conserver explicitement l'epsilon
+      if (v === 'E' || v === 'ε') continue;
+      // Si une chaîne mélange des 0 et des E/ε quelconques, la normaliser en epsilon pur
+      if (typeof v === 'string') {
+        const s = v.trim();
+        if (s.includes('ε') || s.includes('E')) {
+          baseSolutionTable[i][j] = 'ε';
+          continue;
+        }
+      }
+      // Coercition numérique robuste
+      const n = Number(v);
+      if (!isFinite(n) || isNaN(n)) {
+        baseSolutionTable[i][j] = 0;
+      } else if (n < 0) {
+        baseSolutionTable[i][j] = 0;
+      } else {
+        baseSolutionTable[i][j] = n;
+      }
+    }
+  }
 };
