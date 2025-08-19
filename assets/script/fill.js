@@ -253,10 +253,13 @@ function generateDegenerateData() {
  * Costs matrix (rows A..D, cols 1..6), supplies [50,60,20,90], demands [40,30,70,20,40,20].
  */
 function generateExampleData() {
-  // Ensure table is 4x6
-  $('#rows').val(4);
-  $('#cols').val(6);
-  generateTable();
+  // This function ensures a 4x6 table exists and then fills it with data.
+  // It avoids re-generating if the table is already the correct size to prevent side effects.
+  if (body_id.length !== 4 || head_id.length !== 6) {
+    $('#rows').val(4);
+    $('#cols').val(6);
+    generateTable();
+  }
 
   const costs = [
     [19, 12, 14, 6, 9, 10],
@@ -290,6 +293,7 @@ function generateExampleData() {
   const total = supplies.reduce((a, b) => a + b, 0); // should equal sum of demands
   $('#total-cell').text(total);
 }
+
 
 /**
  * Displays the final optimal solution in a separate, clear table.

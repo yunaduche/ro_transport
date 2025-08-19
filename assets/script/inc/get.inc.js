@@ -9,7 +9,8 @@ const get_item = (id, position) => {
   while (i != position) {
     i++;
   }
-  return $(inputs[i]).val();
+  const value = $(inputs[i]).val();
+  return Number(value) || 0;
 };
 
 /**
@@ -20,7 +21,8 @@ const get_data = (id) => {
   let inputs = $(id);
   let resultat = [];
   for (let i = 0; i < inputs.length; i++) {
-    resultat = [...resultat, $(inputs[i]).val()];
+    const value = $(inputs[i]).val();
+    resultat.push(Number(value) || 0);
   }
   return resultat;
 };
@@ -33,7 +35,8 @@ const get_data_sort = (id) => {
   let inputs = $(id);
   let resultat = [];
   for (let i = 0; i < inputs.length; i++) {
-    resultat = [...resultat, $(inputs[i]).val()];
+    const value = $(inputs[i]).val();
+    resultat.push(Number(value) || 0);
   }
   resultat.sort(function (a, b) {
     return a - b;
@@ -82,7 +85,8 @@ const get_base_data = () => {
     $(this)
       .find('.content-data')
       .each(function () {
-        row.push($(this).val());
+        const value = $(this).val();
+        row.push(Number(value) || 0);
       });
     matrix.push(row);
   });
@@ -101,10 +105,11 @@ const get_base_data_sort = () => {
     $(this)
       .find('.content-data')
       .each(function () {
-        row.push($(this).val());
+        const value = $(this).val();
+        row.push(Number(value) || 0);
       });
     // Sort the collected row before pushing it to the matrix
-    row.sort((a, b) => Number(a) - Number(b));
+    row.sort((a, b) => a - b);
     matrix.push(row);
   });
   return matrix;

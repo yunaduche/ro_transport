@@ -1,59 +1,87 @@
 const set_gains = () => {
   const gain = gainMaximum.coefficient;
 
-  // Special case: epsilon coefficient -> do not pivot to avoid moving ε
-  // Practically, if only improvements of type '-E' exist, consider the solution optimal
+  // Gérer le pivot symbolique avec epsilon
   if (gain === 'E' || gain === 'ε') {
-    // Effectuer un pivot symbolique (échange de base) sans mouvement quantitatif
     perform_symbolic_pivot(gainMaximum.chemin);
     sanitize_base_solution();
-    if (is_degenerate_case(noeuds, baseSolutionTable)) add_link(baseSolutionTable, originalTable);
+    if (is_degenerate_case(noeuds, baseSolutionTable)) {
+      add_link(baseSolutionTable, originalTable);
+    }
     return;
   }
 
-  // Standard numeric case
-  for (let i = 0; i < gainMaximum.chemin.length; i++) {
-    const row = gainMaximum.chemin[i].ligne;
-    const col = gainMaximum.chemin[i].colonne;
-    const mark = gainMaximum.chemin[i].marque;
-    let current = baseSolutionTable[row][col];
+  const g = Number(gain);
+  const path = gainMaximum.chemin;
+  const TOLERANCE = 1e-9;
 
-    const isEps = current === 'E' || current === 'ε';
-    const isZero = current === 0 || current === '0';
-
-    if (mark === '+') {
-      // If the cell is ε, it becomes numeric = gain
-      if (isEps || isZero) {
-        const g = Number(gain);
-        baseSolutionTable[row][col] = isFinite(g) ? g : 0;
-      } else {
-        current = Number(current);
-        const g = Number(gain);
-        baseSolutionTable[row][col] = isFinite(g) && isFinite(current) ? current + g : 0;
+  // 1. Identifier toutes les variables candidates à quitter la base
+  // Ce sont les cellules marquées '-' dont la valeur est égale au gain.
+  const leavingCandidates = [];
+  for (const step of path) {
+    if (step.marque === '-') {
+      const currentValue = Number(step.value); // Utiliser la valeur snapshotée
+      if (Math.abs(currentValue - g) < TOLERANCE) {
+        leavingCandidates.push({ ligne: step.ligne, colonne: step.colonne });
       }
-    } else {
-      // mark '-'
-      if (isEps) {
-        // Ne remplace pas ε par 0 en cas de pivot avec gain numérique; ε reste basique à ε (il quittera la base uniquement via un pivot symbolique)
-        // Ici on n'altère pas la case ε lorsque la marque est '-'.
+    }
+  }
+
+  // 2. Appliquer le pivot
+  let hasLeft = false; // Drapeau pour s'assurer qu'une seule variable quitte la base
+  for (const step of path) {
+    const { ligne, colonne, marque } = step;
+    const current = baseSolutionTable[ligne][colonne];
+
+    if (marque === '+') {
+      // La variable entrante prend la valeur du gain
+      if (current === 0 || current === '0' || current === 'E' || current === 'ε') {
+        baseSolutionTable[ligne][colonne] = g;
       } else {
-        current = Number(current);
-        const g = Number(gain);
-        let next = (isFinite(current) && isFinite(g)) ? current - g : 0;
-        if (!isFinite(next) || isNaN(next) || next < 0) next = 0;
-        baseSolutionTable[row][col] = next;
+        baseSolutionTable[ligne][colonne] = Number(current) + g;
+      }
+    } else { // marque === '-'
+      if (current === 'E' || current === 'ε') {
+        continue; // Ne pas modifier une cellule epsilon dans un pivot numérique
+      }
+
+      // Vérifier si la cellule est une candidate à la sortie
+      const isCandidate = leavingCandidates.some(c => c.ligne === ligne && c.colonne === colonne);
+
+      if (isCandidate) {
+        if (!hasLeft) {
+          // La première candidate quitte officiellement la base
+          baseSolutionTable[ligne][colonne] = 0;
+          hasLeft = true;
+        } else {
+          // Les autres candidates deviennent epsilon pour éviter la dégénérescence
+          baseSolutionTable[ligne][colonne] = 'ε';
+        }
+      } else {
+        // Cellule non candidate, soustraire simplement le gain
+        baseSolutionTable[ligne][colonne] = Number(current) - g;
       }
     }
   }
 
   sanitize_base_solution();
-  if (is_degenerate_case(noeuds, baseSolutionTable)) add_link(baseSolutionTable, originalTable);
+  if (is_degenerate_case(noeuds, baseSolutionTable)) {
+    add_link(baseSolutionTable, originalTable);
+  }
 };
 
 const get_gains = () => {
   let pathList = [];
   let maxGainIndex;
   let baseSolutionCopy = baseSolutionTable.map(arr => arr.slice());
+
+  // --- DEBUT BLOC DE DEBOGAGE ---
+  const iteration = solution_data.length;
+  console.log(`--- Itération ${iteration} ---`);
+  console.log("Tableau de solution au début de l'itération:", JSON.parse(JSON.stringify(baseSolutionTable)));
+  console.log("Potentiels (u_i, v_j) utilisés:", JSON.parse(JSON.stringify(noeuds)));
+  // --- FIN BLOC DE DEBOGAGE ---
+
   console.log('get gain');
   solution_data = [...solution_data, baseSolutionCopy];
 
@@ -71,9 +99,9 @@ const get_gains = () => {
           // Incohérence de construction des noeuds; on saute cette case
           continue;
         }
-        // Calcul du coût marginal (potentiel réduit) selon la logique attendue:
-        // δ(i,j) = Vx_i + C(i,j) − Vy_j
-        let res = Number(srcNode.value) + Number(originalTable[i][j]) - Number(dstNode.value);
+        // Calcul du coût marginal (potentiel réduit) pour les variables hors base,
+        // conformément à la formule standard: δ(i,j) = C(i,j) - u_i - v_j
+        let res = Number(originalTable[i][j]) - Number(srcNode.value) - Number(dstNode.value);
         let data = {
           key_1: '',
           key_2: '',
@@ -130,6 +158,11 @@ const get_gains = () => {
   if (pathList.length > 0) {
     maxGainIndex = get_max_val_index(pathList);
     gainMaximum = pathList[maxGainIndex];
+
+    // --- DEBUT BLOC DE DEBOGAGE ---
+    console.log("Cycle d'amélioration choisi (gainMaximum):", JSON.parse(JSON.stringify(gainMaximum)));
+    // --- FIN BLOC DE DEBOGAGE ---
+
     // If best gain is '-E', perform a symbolic pivot to change the basis (degenerate step)
     if (gainMaximum && gainMaximum.gain === '-E') {
       perform_symbolic_pivot(gainMaximum.chemin);
@@ -140,6 +173,9 @@ const get_gains = () => {
     set_gains();
   } else {
     var_init = 1;
+    // --- DEBUT BLOC DE DEBOGAGE ---
+    console.log("--- Fin de l'optimisation (aucune amélioration trouvée) ---");
+    // --- FIN BLOC DE DEBOGAGE ---
   }
 };
 
