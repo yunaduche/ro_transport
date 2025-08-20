@@ -11,6 +11,21 @@ const set_gains = () => {
     return;
   }
 
+  // Préparer une gestion correcte des ex-aequo sur les cases marquées '-'
+  // On identifie les positions '-' non-ε et leur valeur actuelle avant pivot
+  const minusPositions = [];
+  let minMinusValue = Infinity;
+  for (let i = 0; i < gainMaximum.chemin.length; i++) {
+    const stepInfo = gainMaximum.chemin[i];
+    if (stepInfo.marque !== '-') continue;
+    const v = baseSolutionTable[stepInfo.ligne][stepInfo.colonne];
+    if (v === 'E' || v === 'ε') continue;
+    const num = Number(v);
+    if (!isFinite(num)) continue;
+    minusPositions.push({ row: stepInfo.ligne, col: stepInfo.colonne, val: num });
+    if (num < minMinusValue) minMinusValue = num;
+  }
+
   // Standard numeric case
   for (let i = 0; i < gainMaximum.chemin.length; i++) {
     const row = gainMaximum.chemin[i].ligne;
@@ -42,6 +57,29 @@ const set_gains = () => {
         let next = (isFinite(current) && isFinite(g)) ? current - g : 0;
         if (!isFinite(next) || isNaN(next) || next < 0) next = 0;
         baseSolutionTable[row][col] = next;
+      }
+    }
+  }
+
+  // Gestion des ex-aequo: si plusieurs cases '-' atteignent 0 avec le même minimum,
+  // on n'en laisse qu'une seule à 0 (la première rencontrée dans l'ordre du chemin),
+  // et on remet les autres à 'ε' pour conserver m+n−1 arêtes basiques.
+  if (isFinite(minMinusValue)) {
+    const gNum = Number(gain);
+    if (isFinite(gNum) && Math.abs(gNum - minMinusValue) <= 1e-9) {
+      // Repérer celles qui sont tombées à 0
+      const zeroMinus = [];
+      for (let k = 0; k < minusPositions.length; k++) {
+        const p = minusPositions[k];
+        const vNow = baseSolutionTable[p.row][p.col];
+        if (vNow === 0 || vNow === '0') zeroMinus.push(p);
+      }
+      // Si plus d'une case devenue 0, convertir les suivantes en 'ε'
+      if (zeroMinus.length > 1) {
+        for (let t = 1; t < zeroMinus.length; t++) {
+          const p = zeroMinus[t];
+          baseSolutionTable[p.row][p.col] = 'ε';
+        }
       }
     }
   }
